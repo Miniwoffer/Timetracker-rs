@@ -1,6 +1,10 @@
 //! A simple demonstration of how to construct and use Canvasses by splitting up the window.
 
 #[macro_use] extern crate conrod;
+#[macro_use] extern crate serde_derive;
+
+extern crate chrono;
+extern crate serde;
 mod support;
 
 
@@ -10,17 +14,20 @@ fn main() {
 
 mod feature {
     extern crate find_folder;
-    extern crate time;
 
     use std::fs::File;
+    use std::io::prelude::*;
 
     use conrod;
     use conrod::backend::glium::glium;
     use conrod::backend::glium::glium::Surface;
   
-    extern crate serde;
+   
     extern crate serde_json;
+
     use support;
+    use chrono::prelude::*;
+    use chrono;
     
     pub fn main() {
         const WIDTH: u32 = 800;
@@ -53,25 +60,22 @@ mod feature {
 
         // Instantiate the generated list of widget identifiers.
         let ids = &mut Ids::new(ui.widget_id_generator());
+        let mut ids_list = Vec::new();
+        let mut curname = "Enter name".to_string();
 
         // Poll events from the window.
         let mut event_loop = support::EventLoop::new();
 
-        let mut timerstates : Vec<support::TimerState> = match File::open("world.bin") {
-            Ok(a) -> {
+        let mut timerstates : Vec<support::TimerState> = match File::open("data.json") {
+            Ok(mut a) => {
                 let mut s = String::new();
-                try!(f.read_to_string(&mut s));
-                serde_json::from_str(s)
+                a.read_to_string(&mut s).expect("Failed to read config");
+                serde_json::from_str(&s).expect("Failed convert to json")
             },
-            Err(e) -> {
+            Err(_e) => {
                 Vec::new()
             }
-        }
-        if()
-        
-        timerstates.push(support::TimerState::new("Timer one".to_string()));
-        timerstates.push(support::TimerState::new("Timer two".to_string()));
-        //timerstates.push(support::TimerState::new("Timer three".to_string()));
+        };
 
         'main: loop {
             
@@ -95,9 +99,11 @@ mod feature {
                             },
                             ..
                         } => {
-                            let mut f = try!(File::create("data.json"));
-                            try!(f.write_all(serde_json::to_string(&timerstates).unwrap()));
-                            bincode::encode_into(&world, &mut file, bincode::SizeLimit::Infinite).unwrap();
+                            let mut f = File::create("data.json").unwrap();
+                            f.write_all(serde_json::to_string(&timerstates)
+                                .unwrap()
+                                .as_bytes()).unwrap();
+                            
                             break 'main
                         },
                         _ => (),
@@ -107,7 +113,7 @@ mod feature {
             }
 
             // Instantiate all widgets in the GUI.
-            set_widgets(ui.set_widgets(), ids, &mut timerstates);
+            set_widgets(ui.set_widgets(), ids, &mut ids_list, &mut timerstates, &mut curname);
 
             // Render the `Ui` and then display it on the screen.
             if let Some(primitives) = ui.draw_if_changed() {
@@ -121,7 +127,7 @@ mod feature {
     }
 
     // Draw the Ui.
-    fn set_widgets(ref mut ui: conrod::UiCell, ids: &mut Ids, timerstates : &mut Vec<support::TimerState> ) {
+    fn set_widgets(ref mut ui: conrod::UiCell, ids: &mut Ids, ids_list: &mut Vec<ListItem>, timerstates : &mut Vec<support::TimerState> ,text : &mut String) {
         use conrod::{color, widget, Colorable, Borderable, Positionable, Labelable, Sizeable, Widget};
         
         let main_color = color::rgb(0.2,0.2,0.3);
@@ -152,6 +158,9 @@ mod feature {
             .middle_of(ids.body)
             .set(ids.tabs, ui);
 
+        while ids_list.len() < timerstates.len() {
+            ids_list.push(ListItem::new(ui.widget_id_generator()));
+        }
 
         let (mut items, _scrollbar) = widget::List::flow_down(timerstates.len())
             .item_size(50.0)
@@ -161,53 +170,107 @@ mod feature {
             .set(ids.timer_list, ui);
 
 
-
         while let Some(item) = items.next(ui) {
             let i = item.i;
-            let mut label;
+            let mut  label;
+
+            let dummy = widget::Canvas::new().w_of(ids.timer_list);
+            item.set(dummy , ui);
+
+            widget::Canvas::new()
+                .wh_of(item.widget_id)
+                .middle_of(item.widget_id)
+                .set(ids_list[i].master, ui);
+            
+            //Make the label for the toggle button
             if timerstates[i].active {
-                let delta = formatTime(timerstates[i].active_since.to(time::PreciseTime::now()));
+                let zero : u32 = 0;
+                let timesince : DateTime<Utc> = chrono::MIN_DATE.and_hms(zero,zero,zero).checked_add_signed(duration_elapsed(timerstates[i].active_since)).unwrap();
+                let delta = format_time(timesince);
                 label = format!("Name: {}\nTotal: {} Delta: {}", 
                 timerstates[i].name,
-                formatTime(timerstates[i].total),
+                format_time(timerstates[i].total),
                 delta);
             }
             else {
                 label = format!("Name: {}\nTotal: {}", 
                 timerstates[i].name,
-                formatTime(timerstates[i].total));
+                format_time(timerstates[i].total));
             }
-            let a  = widget::Toggle::new(timerstates[i].active)
+            for b in  widget::Toggle::new(timerstates[i].active)
+            .h_of(ids_list[i].master)
+            .padded_w_of(ids_list[i].master,25.)
             .label(&label)
             .label_color(color::LIGHT_ORANGE)
-            .color(other_color);
-
-            for b in item.set(a,ui){
+            .mid_left_of(ids_list[i].master)
+            .color(other_color)
+            .set(ids_list[i].toggle, ui) {
                 if b {
-                    timerstates[i].active_since = time::PreciseTime::now();
+                    timerstates[i].active_since = Utc::now();
                 }
                 else {
-                    timerstates[i].total = timerstates[i].total + timerstates[i].active_since.to(time::PreciseTime::now());
+                    timerstates[i].total = timerstates[i].total.checked_add_signed(duration_elapsed(timerstates[i].active_since)).unwrap();
                 }
                 timerstates[i].active = b;
+            }
+            for _press in widget::Button::new()
+                .h_of(ids_list[i].master)
+                .w(50.)
+                .label("-")
+                .mid_right_of(ids_list[i].master)
+            .set(ids_list[i].remove, ui){
+                timerstates.remove(i);
+                ids_list.remove(i);
+                return;
+            }
+
+
+            
+            
+        }
+
+        for edit in widget::TextBox::new(text)
+            .color(color::WHITE)
+            .h(50.)
+            .padded_w_of(ids.tab_timers, 25.0)
+            .bottom_left_of(ids.tab_timers)
+            .center_justify()
+            .set(ids.add_name, ui)
+        {
+            use conrod::widget::text_box::Event::{Update,Enter};
+            match edit {
+                Update(txt) => {
+                    *text = txt;
+                },
+                Enter => {
+                    timerstates.push(support::TimerState::new(text.clone()));
+                },
             }
             
         }
 
-        //duration
-        //deltatime
-        //fn text (text: widget::Text) -> widget::Text { text.color(color::WHITE).font_size(36) }
-
+        for _press in widget::Button::new()
+            .h(50.)
+            .w(50.)
+            .label("+")
+            .bottom_right_of(ids.tab_timers)
+            .set(ids.plus_button, ui){
+                timerstates.push(support::TimerState::new(text.clone()));
+            }
+        
 
     }
-    fn formatTime(t : time::Duration) -> String {
+    fn format_time(t : chrono::DateTime<Utc>) -> String {
         let ret = format!(
             "{:02}:{:02}:{:02}",
-            t.num_hours(),
-            t.num_minutes(),
-            t.num_seconds()
+            t.hour(),
+            t.minute(),
+            t.second()
         );
         ret
+    }
+    fn duration_elapsed(t : chrono::DateTime<Utc>) -> chrono::Duration {
+        chrono::offset::Utc::now().signed_duration_since(t)
     }
 
 
@@ -219,6 +282,8 @@ mod feature {
             body,
             
             timer_list,
+            plus_button,
+            add_name,
 
             footer_scrollbar,
 
@@ -229,6 +294,13 @@ mod feature {
             title,
             subtitle,
 
+        }
+    }
+    widget_ids! {
+        struct ListItem {
+            master,
+            toggle,
+            remove,
         }
     }
 }

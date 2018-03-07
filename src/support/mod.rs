@@ -11,22 +11,24 @@
 //! and drawing backends behave in the same manner.
 
 extern crate rand;
-extern crate time;
 
 //use time::{Duration, PreciseTime};
 
 use std;
 use conrod::backend::glium::glium;
+use chrono::prelude::*;
+use chrono;
 
-#[macro_use]
-extern crate serde_derive;
+//#[macro_use]
+//extern crate serde_derive;
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TimerState {
     pub name : String,
     pub active : bool,
-    pub total : time::Duration,
-    pub active_since : time::PreciseTime,
+    pub total :  DateTime<Utc>,
+    pub active_since : DateTime<Utc>,
 }
 
 impl TimerState {
@@ -34,8 +36,8 @@ impl TimerState {
         TimerState {
             name : name,
             active : false,
-            total : time::Duration::zero(),
-            active_since : time::PreciseTime::now(),
+            total : chrono::MIN_DATE.and_hms(0,0,0),
+            active_since : Utc::now(),
         }
     }
 
