@@ -6,4 +6,5 @@ authors = ["Miniwoffer <odinhorst@hotmail.com>"]
 [dependencies]
 conrod = { version = "^0.57.0",features = ["winit","glium"] }
 find_folder = "^0.3.0"
+time = "^0.1.39"
 rand = "*"

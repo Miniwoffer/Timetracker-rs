@@ -10,11 +10,14 @@ fn main() {
 
 mod feature {
     extern crate find_folder;
+    extern crate time;
+
     use conrod;
     use conrod::backend::glium::glium;
     use conrod::backend::glium::glium::Surface;
+  
     use support;
-
+    
     pub fn main() {
         const WIDTH: u32 = 800;
         const HEIGHT: u32 = 600;
@@ -50,6 +53,11 @@ mod feature {
         // Poll events from the window.
         let mut event_loop = support::EventLoop::new();
 
+        let mut timerstates : Vec<support::TimerState> = Vec::new();
+        timerstates.push(support::TimerState::new("Timer one".to_string()));
+        timerstates.push(support::TimerState::new("Timer two".to_string()));
+        timerstates.push(support::TimerState::new("Timer three".to_string()));
+
         'main: loop {
             
             // Handle all events.
@@ -79,7 +87,7 @@ mod feature {
             }
 
             // Instantiate all widgets in the GUI.
-            set_widgets(ui.set_widgets(), ids);
+            set_widgets(ui.set_widgets(), ids, &mut timerstates);
 
             // Render the `Ui` and then display it on the screen.
             if let Some(primitives) = ui.draw_if_changed() {
@@ -93,8 +101,8 @@ mod feature {
     }
 
     // Draw the Ui.
-    fn set_widgets(ref mut ui: conrod::UiCell, ids: &mut Ids) {
-        use conrod::{color, widget, Colorable, Borderable, Positionable, Sizeable, Widget};
+    fn set_widgets(ref mut ui: conrod::UiCell, ids: &mut Ids, timerstates : &mut Vec<support::TimerState> ) {
+        use conrod::{color, widget, Colorable, Borderable, Positionable, Labelable, Sizeable, Widget};
         
         let main_color = color::rgb(0.2,0.2,0.3);
         let other_color = color::rgb(0.1,0.1,0.2);
@@ -125,26 +133,61 @@ mod feature {
             .set(ids.tabs, ui);
 
 
-        let timer = &mut Timer::new(ui.widget_id_generator());
-        widget::Canvas::new()
-            .wh_of(ids.tab_timers)
-            .color(main_color)
+        let (mut items, _scrollbar) = widget::List::flow_down(timerstates.len())
+            .item_size(50.0)
+            .scrollbar_on_top()
             .middle_of(ids.tab_timers)
-            .flow_right(&[
-                (timer.toggle, widget::Canvas::new()),
-                (timer.clock, widget::Canvas::new()),
-            ]).set(timer.master,ui);
+            .wh_of(ids.tab_timers)
+            .set(ids.timer_list, ui);
 
-        widget::Toggle::new(false)
-            .wh_of(timer.toggle)
-            .color(other_color)
-            .middle_of(timer.toggle)
-            .set(timer.toggle_button,ui);
+
+
+        while let Some(item) = items.next(ui) {
+            let i = item.i;
+            let mut label;
+            if timerstates[i].active {
+                let delta = formatTime(timerstates[i].active_since.to(time::PreciseTime::now()));
+                label = format!("Name: {}\nTotal: {} Delta: {}", 
+                timerstates[i].name,
+                formatTime(timerstates[i].total),
+                delta);
+            }
+            else {
+                label = format!("Name: {}\nTotal: {}", 
+                timerstates[i].name,
+                formatTime(timerstates[i].total));
+            }
+            let a  = widget::Toggle::new(timerstates[i].active)
+            .label(&label)
+            .label_color(color::WHITE)
+            .color(other_color);
+
+            for b in item.set(a,ui){
+                if b {
+                    timerstates[i].active_since = time::PreciseTime::now();
+                }
+                else {
+                    timerstates[i].total = timerstates[i].total + timerstates[i].active_since.to(time::PreciseTime::now());
+                }
+                timerstates[i].active = b;
+            }
+            
+        }
+
         //duration
         //deltatime
         //fn text (text: widget::Text) -> widget::Text { text.color(color::WHITE).font_size(36) }
 
 
+    }
+    fn formatTime(t : time::Duration) -> String {
+        let ret = format!(
+            "{:02}:{:02}:{:02}",
+            t.num_hours(),
+            t.num_minutes(),
+            t.num_seconds()
+        );
+        ret
     }
 
 
@@ -154,6 +197,8 @@ mod feature {
             master,
             header,
             body,
+            
+            timer_list,
 
             footer_scrollbar,
 
@@ -163,17 +208,6 @@ mod feature {
 
             title,
             subtitle,
-
-        }
-    }
-    widget_ids! {
-        struct Timer {
-            master,
-            toggle,
-            clock,
-
-            toggle_button,
-            current,
 
         }
     }
