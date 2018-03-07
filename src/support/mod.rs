@@ -18,22 +18,17 @@ extern crate time;
 use std;
 use conrod::backend::glium::glium;
 
+#[macro_use]
+extern crate serde_derive;
 
-
-
-/// In most of the examples the `glutin` crate is used for providing the window context and
-/// events while the `glium` crate is used for displaying `conrod::render::Primitives` to the
-/// screen.
-/// 
-/// This `Iterator`-like type simplifies some of the boilerplate involved in setting up a
-/// glutin+glium event loop that works efficiently with conrod.
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TimerState {
     pub name : String,
     pub active : bool,
     pub total : time::Duration,
     pub active_since : time::PreciseTime,
 }
+
 impl TimerState {
     pub fn new(name : String) -> Self {
         TimerState {

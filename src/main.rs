@@ -12,10 +12,14 @@ mod feature {
     extern crate find_folder;
     extern crate time;
 
+    use std::fs::File;
+
     use conrod;
     use conrod::backend::glium::glium;
     use conrod::backend::glium::glium::Surface;
   
+    extern crate serde;
+    extern crate serde_json;
     use support;
     
     pub fn main() {
@@ -53,10 +57,21 @@ mod feature {
         // Poll events from the window.
         let mut event_loop = support::EventLoop::new();
 
-        let mut timerstates : Vec<support::TimerState> = Vec::new();
+        let mut timerstates : Vec<support::TimerState> = match File::open("world.bin") {
+            Ok(a) -> {
+                let mut s = String::new();
+                try!(f.read_to_string(&mut s));
+                serde_json::from_str(s)
+            },
+            Err(e) -> {
+                Vec::new()
+            }
+        }
+        if()
+        
         timerstates.push(support::TimerState::new("Timer one".to_string()));
         timerstates.push(support::TimerState::new("Timer two".to_string()));
-        timerstates.push(support::TimerState::new("Timer three".to_string()));
+        //timerstates.push(support::TimerState::new("Timer three".to_string()));
 
         'main: loop {
             
@@ -79,7 +94,12 @@ mod feature {
                                 ..
                             },
                             ..
-                        } => break 'main,
+                        } => {
+                            let mut f = try!(File::create("data.json"));
+                            try!(f.write_all(serde_json::to_string(&timerstates).unwrap()));
+                            bincode::encode_into(&world, &mut file, bincode::SizeLimit::Infinite).unwrap();
+                            break 'main
+                        },
                         _ => (),
                     },
                     _ => (),
@@ -159,7 +179,7 @@ mod feature {
             }
             let a  = widget::Toggle::new(timerstates[i].active)
             .label(&label)
-            .label_color(color::WHITE)
+            .label_color(color::LIGHT_ORANGE)
             .color(other_color);
 
             for b in item.set(a,ui){
