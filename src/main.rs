@@ -187,7 +187,7 @@ mod feature {
                 let zero : u32 = 0;
                 let timesince : DateTime<Utc> = chrono::MIN_DATE.and_hms(zero,zero,zero).checked_add_signed(duration_elapsed(timerstates[i].active_since)).unwrap();
                 let delta = format_time(timesince);
-                label = format!("Name: {}\nTotal: {} Delta: {}", 
+                label = format!("Name: {}\nTotal: {} Session: {}", 
                 timerstates[i].name,
                 format_time(timerstates[i].total),
                 delta);
@@ -261,11 +261,12 @@ mod feature {
 
     }
     fn format_time(t : chrono::DateTime<Utc>) -> String {
+        let dur = t.signed_duration_since(chrono::MIN_DATE.and_hms(0u32,0u32,0u32));
         let ret = format!(
             "{:02}:{:02}:{:02}",
-            t.hour(),
-            t.minute(),
-            t.second()
+            dur.num_hours(),
+            dur.num_minutes()%60,
+            dur.num_seconds()%60
         );
         ret
     }
