@@ -7,14 +7,14 @@ extern crate chrono;
 extern crate serde;
 mod support;
 
-const FILENAME : &str = "timetracker.json";
-
-
 fn main() {
     feature::main();
 }
 
 mod feature {
+    const FILENAME : &str = "timetracker.json";
+
+
     extern crate find_folder;
 
     use std::fs::File;
