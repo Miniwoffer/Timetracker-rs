@@ -7,6 +7,8 @@ extern crate chrono;
 extern crate serde;
 mod support;
 
+const FILENAME : &str = "timetracker.json";
+
 
 fn main() {
     feature::main();
@@ -66,7 +68,7 @@ mod feature {
         // Poll events from the window.
         let mut event_loop = support::EventLoop::new();
 
-        let mut timerstates : Vec<support::TimerState> = match File::open("data.json") {
+        let mut timerstates : Vec<support::TimerState> = match File::open(FILENAME) {
             Ok(mut a) => {
                 let mut s = String::new();
                 a.read_to_string(&mut s).expect("Failed to read config");
@@ -99,7 +101,7 @@ mod feature {
                             },
                             ..
                         } => {
-                            let mut f = File::create("data.json").unwrap();
+                            let mut f = File::create(FILENAME).unwrap();
                             f.write_all(serde_json::to_string(&timerstates)
                                 .unwrap()
                                 .as_bytes()).unwrap();
@@ -132,11 +134,12 @@ mod feature {
         
         let main_color = color::rgb(0.2,0.2,0.3);
         let other_color = color::rgb(0.1,0.1,0.2);
+        let green_color = color::rgb(0.45,1.,0.12);
 
         
         // Construct our main `Canvas` tree.
         widget::Canvas::new().flow_down(&[
-            (ids.header, widget::Canvas::new().color(main_color).length(100.0)),
+            (ids.header, widget::Canvas::new().color(main_color).length(70.0)),
             (ids.body,  widget::Canvas::new().color(color::ORANGE).scroll_kids_vertically()),
         ]).set(ids.master, ui);
 
@@ -145,12 +148,13 @@ mod feature {
 
         widget::Text::new("Time tracker")
             .color(color::LIGHT_ORANGE)
-            .font_size(48)
-            .middle_of(ids.header)
+            .font_size(28)
+            .mid_left_with_margin_on(ids.header,28.)
+            .left_justify()
             .set(ids.title, ui);
 
         // Here we make some canvas `Tabs` in the middle column.
-        widget::Tabs::new(&[(ids.tab_timers, "Timers"), (ids.tab_statistics, "Statistics")])
+        widget::Tabs::new(&[(ids.tab_timers, "Timers")/*,(ids.tab_statistics, "Statistics")*/])
             .wh_of(ids.body)
             .color(other_color)
             .border(0.)
@@ -187,24 +191,19 @@ mod feature {
                 let zero : u32 = 0;
                 let timesince : DateTime<Utc> = chrono::MIN_DATE.and_hms(zero,zero,zero).checked_add_signed(duration_elapsed(timerstates[i].active_since)).unwrap();
                 let delta = format_time(timesince);
-                label = format!("Name: {}\nTotal: {} Session: {}", 
-                timerstates[i].name,
-                format_time(timerstates[i].total),
-                delta);
+                label = format!("{}", delta);
             }
             else {
-                label = format!("Name: {}\nTotal: {}", 
-                timerstates[i].name,
-                format_time(timerstates[i].total));
+                label = format!("{}",format_time(timerstates[i].total));
             }
             for b in  widget::Toggle::new(timerstates[i].active)
-            .h_of(ids_list[i].master)
-            .padded_w_of(ids_list[i].master,25.)
-            .label(&label)
-            .label_color(color::LIGHT_ORANGE)
-            .mid_left_of(ids_list[i].master)
-            .color(other_color)
-            .set(ids_list[i].toggle, ui) {
+                .h_of(ids_list[i].master)
+                .padded_w_of(ids_list[i].master,25.)
+                .label(&label)
+                .label_color(if timerstates[i].active {color::BLACK} else {color::LIGHT_ORANGE})
+                .mid_left_of(ids_list[i].master)
+                .color(if timerstates[i].active  {green_color}else {other_color})
+                .set(ids_list[i].toggle, ui) {
                 if b {
                     timerstates[i].active_since = Utc::now();
                 }
@@ -213,6 +212,14 @@ mod feature {
                 }
                 timerstates[i].active = b;
             }
+            
+            widget::Text::new(timerstates[i].name.as_str())
+                .color(if timerstates[i].active {color::BLACK} else {color::LIGHT_ORANGE})
+                .font_size(28)
+                .bottom_left_with_margin_on(ids_list[i].toggle,14.)
+                .left_justify()
+                .set(ids_list[i].name, ui);
+
             for _press in widget::Button::new()
                 .h_of(ids_list[i].master)
                 .w(50.)
@@ -223,6 +230,8 @@ mod feature {
                 ids_list.remove(i);
                 return;
             }
+
+
 
 
             
@@ -300,8 +309,13 @@ mod feature {
     widget_ids! {
         struct ListItem {
             master,
+
             toggle,
             remove,
+
+            name,
+            time,
+            session,
         }
     }
 }
