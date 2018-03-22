@@ -36,7 +36,6 @@ mod feature {
     pub fn main() {
         const WIDTH: u32 = 800;
         const HEIGHT: u32 = 600;
-        const SLEEPTIME: Duration = Duration::from_millis(500);
 
         // Build the window.
         let mut events_loop = glium::glutin::EventsLoop::new();
@@ -82,7 +81,6 @@ mod feature {
             }
         };
         'main: loop {
-            sleep(SLEEPTIME);
             // Handle all events.
             for event in event_loop.next(&mut events_loop) {
 

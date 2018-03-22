@@ -27,8 +27,14 @@ use chrono;
 pub struct TimerState {
     pub name : String,
     pub active : bool,
-    pub total :  DateTime<Utc>,
+    total :  Vec<TimeAndDuration>,
+    size : i32,
+    sumtotal : DateTime<Utc>,
     pub active_since : DateTime<Utc>,
+}
+struct TimeAndDuration {
+    pub at : DateTime<Utc>,
+    pub duration : DateTime<Utc>,
 }
 
 impl TimerState {
@@ -36,9 +42,25 @@ impl TimerState {
         TimerState {
             name : name,
             active : false,
-            total : chrono::MIN_DATE.and_hms(0,0,0),
+            total : Vec::new(),
             active_since : Utc::now(),
         }
+    }
+    pub fn get_total() -> DateTime<Utc> {
+        if(size <  total.size){
+            for i in (size..total.size){
+                sumtotal += total[i].duration; 
+            }
+        }
+        return sumtotal;
+    }
+    pub fn add_to_total(dur : DateTime<Utc>){
+        let tad = TimeAndDuration{
+            at: Utc::now(),
+            duration:  dur,
+        };
+        total.push(tad);
+
     }
 
 }
@@ -65,7 +87,7 @@ impl EventLoop {
         // We don't want to loop any faster than 60 FPS, so wait until it has been at least 16ms
         // since the last yield.
         let last_update = self.last_update;
-        let sixteen_ms = std::time::Duration::from_millis(16);
+        let sixteen_ms = std::time::Duration::from_millis(160);
         let duration_since_last_update = std::time::Instant::now().duration_since(last_update);
         if duration_since_last_update < sixteen_ms {
             std::thread::sleep(sixteen_ms - duration_since_last_update);
@@ -77,11 +99,11 @@ impl EventLoop {
 
         // If there are no events and the `Ui` does not need updating, wait for the next event.
         // if events.is_empty() && !self.ui_needs_update {
-        //     events_loop.run_forever(|event| {
-        //         events.push(event);
-        //         glium::glutin::ControlFlow::Break
-        //     });
-        // }
+        //      events_loop.run_forever(|event| {
+        //          events.push(event);
+        //          glium::glutin::ControlFlow::Break
+        //      });
+        //  }
 
         self.ui_needs_update = false;
         self.last_update = std::time::Instant::now();
